@@ -9,7 +9,7 @@ inputs:
     description: 'Password to encrypt the wallet'
     required: true
     type: string
-  project_name:
+  project-name:
     description: 'Project name (will be used as a prefix for cache keys)'
     required: true
     type: string
@@ -21,18 +21,18 @@ runs:
   - name: Check required variables are set
     shell: bash
     run: |
-      SEED="${{ inputs.seed }}"
-      PASSWORD="${{ inputs.password }}"
-      if test -z "${SEED}"; then
-        echo "SEED is empty! Please add a mnemonic seed secret named SEED to this repo (under repo 'Settings' -> 'Secrets and variables' -> 'Actions')"
+      seed="${{ inputs.seed }}"
+      password="${{ inputs.password }}"
+      if test -z "${seed}"; then
+        echo "seed is empty! Please add a mnemonic seed secret named seed to this repo (under repo 'Settings' -> 'Secrets and variables' -> 'Actions')"
         exit 1
       fi
-      if test -z "${PASSWORD}"; then
-        echo "PASSWORD is empty! Please add a secret named PASSWORD to this repo (under repo 'Settings' -> 'Secrets and variables' -> 'Actions')"
+      if test -z "${password}"; then
+        echo "password is empty! Please add a secret named password to this repo (under repo 'Settings' -> 'Secrets and variables' -> 'Actions')"
         exit 1
       fi
 
-      PW_LEN=$(echo -n "${PASSWORD}" | wc -c)
+      PW_LEN=$(echo -n "${password}" | wc -c)
       if [[ "$PW_LEN" -lt "8" ]]; then
         echo "Password is too short! It must be at least 8 characters long!"
         exit 1
@@ -48,9 +48,9 @@ runs:
     with:
       path: |
         ~/cache
-      key: ${{ runner.os }}-${{ inputs.project_name }}-deb
+      key: ${{ runner.os }}-${{ inputs.project-name }}-deb
       restore-keys: |
-        ${{ runner.os }}-${{ inputs.project_name }}-deb
+        ${{ runner.os }}-${{ inputs.project-name }}-deb
 
   - name: Install Akash client deb
     shell: bash
@@ -75,31 +75,31 @@ runs:
         ~/cache
       key: ${{ steps.cache-deb-restore.outputs.cache-primary-key }}
 
-  - name: Check mnemonic seed secret is present (SEED secret)
+  - name: Check mnemonic seed secret is present (seed secret)
     id: get-seed
     env:
-      SEED: ${{ inputs.seed }}
+      seed: ${{ inputs.seed }}
     shell: bash
     run: |
-      if test -z "${SEED}"; then
+      if test -z "${seed}"; then
         echo "I could not find the mnemonic seed!"
-        echo "Please add a mnemonic seed secret named SEED to this repo (under repo 'Settings' -> 'Secrets and variables' -> 'Actions')"
+        echo "Please add a mnemonic seed secret named seed to this repo (under repo 'Settings' -> 'Secrets and variables' -> 'Actions')"
         echo "I will generate one for you as an example, using '${CLIENT} keys mnemonic' CLI command:"
-        echo "============ MNEMONIC SEED ============"
+        echo "============ MNEMONIC seed ============"
         ${CLIENT} keys mnemonic
-        echo "============ MNEMONIC SEED ============"
+        echo "============ MNEMONIC seed ============"
         exit 1
       fi
 
-  - name: Check password secret is present (PASSWORD secret)
+  - name: Check password secret is present (password secret)
     id: get-password
     env:
-      PASSWORD: ${{ inputs.password }}
+      password: ${{ inputs.password }}
     shell: bash
     run: |
-      if test -z "${PASSWORD}"; then
+      if test -z "${password}"; then
         echo "I could not find the password!"
-        echo "Please add a secret named PASSWORD to this repo (under repo 'Settings' -> 'Secrets and variables' -> 'Actions')"
+        echo "Please add a secret named password to this repo (under repo 'Settings' -> 'Secrets and variables' -> 'Actions')"
         echo "This password will be used to encrypt the wallet."
         exit 1
       fi
@@ -110,9 +110,9 @@ runs:
     with:
       path: |
         ${{ env.AKASH_HOME }}/keyring-file
-      key: ${{ runner.os }}-${{ inputs.project_name }}-wallet
+      key: ${{ runner.os }}-${{ inputs.project-name }}-wallet
       restore-keys: |
-        ${{ runner.os }}-${{ inputs.project_name }}-wallet
+        ${{ runner.os }}-${{ inputs.project-name }}-wallet
 
   - name: AKASH_KEYRING_BACKEND
     id: akash-keyring-backend
@@ -124,24 +124,24 @@ runs:
     if: steps.cache-wallet-restore.outputs.cache-hit != 'true' && steps.akash-keyring-backend.outputs.is != 'test'
     id: restore-wallet
     env:
-      SEED: ${{ inputs.seed }}
-      PASSWORD: ${{ inputs.password }}
+      seed: ${{ inputs.seed }}
+      password: ${{ inputs.password }}
     shell: bash
     run: |
-      ( echo "${SEED}"; echo "${PASSWORD}"; echo "${PASSWORD}"; ) | ${CLIENT} keys add default --recover
+      ( echo "${seed}"; echo "${password}"; echo "${password}"; ) | ${CLIENT} keys add default --recover
       # let's only use a "file" keyring backend which is safe to use with public github repos
       #if [[ ${AKASH_KEYRING_BACKEND} == "test" ]]; then
-      #  echo "${SEED}" | ${CLIENT} keys add default --recover
+      #  echo "${seed}" | ${CLIENT} keys add default --recover
       #fi
 
   - name: Set AKASH_OWNER
     id: set-akash-owner
     env:
-      PASSWORD: ${{ inputs.password }}
+      password: ${{ inputs.password }}
     shell: bash
     run: |
       unset AKASH_OUTPUT
-      AKASH_OWNER=$(echo "${PASSWORD}" | ${CLIENT} keys show default -a)
+      AKASH_OWNER=$(echo "${password}" | ${CLIENT} keys show default -a)
       echo "AKASH_OWNER=$AKASH_OWNER" >> $GITHUB_ENV
       echo "AKASH_OWNER: $AKASH_OWNER"
       # Abort if AKASH_OWNER is empty
@@ -162,9 +162,13 @@ runs:
     with:
       path: |
         ${{ env.AKASH_HOME }}/*.pem
-      key: ${{ runner.os }}-${{ inputs.project_name }}-client-certs
+      key: ${{ runner.os }}-${{ inputs.project-name }}-client-certs
       restore-keys: |
-        ${{ runner.os }}-${{ inputs.project_name }}-client-certs
+        ${{ runner.os }}-${{ inputs.project-name }}-client-certs
+
+  - name: Install bc
+    shell: bash
+    run: sudo apt-get update && sudo apt-get install -y bc
 
   - name: Configure the network
     shell: bash
@@ -220,7 +224,7 @@ runs:
 
   - name: Create client certificate
     env:
-      PASSWORD: ${{ inputs.password }}
+      password: ${{ inputs.password }}
     shell: bash
     run: |
       CLIENT_CERT_PATH="${AKASH_HOME}/${AKASH_OWNER}.pem"
@@ -268,9 +272,9 @@ runs:
 
       if [[ "$GEN_NEW_CERT" -eq "0" ]]; then
         echo "Generating a new client certificate..."
-        echo "${PASSWORD}" | ${CLIENT} tx cert generate client
+        echo "${password}" | ${CLIENT} tx cert generate client
         echo "Broadcasting the certificate to the chain..."
-        echo "${PASSWORD}" | ${CLIENT} tx cert publish client
+        echo "${password}" | ${CLIENT} tx cert publish client
         sleep ${BLOCK_TIME}
       else
         echo "Client certificate is valid and present on the chain. No further actions required."

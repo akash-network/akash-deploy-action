@@ -1,8 +1,8 @@
 name: Close state deployment
-description: Close a single deployment based on the state (.akash/{DSEQ,PROVIDER})
+description: Close a single deployment based on the state (.akash/project-name)
 
 inputs:
-  project_path:
+  project-path:
     description: 'Path for the project to deploy'
     required: true
     type: string
@@ -14,6 +14,11 @@ inputs:
     description: 'GITHUB_TOKEN'
     required: true
     type: string
+  project-name:
+    description: 'Project name (will be used as prefix for state files)'
+    required: false
+    default: 'app'
+    type: string
 
 runs:
   using: "composite"
@@ -21,14 +26,12 @@ runs:
   steps:
   - name: Close deployment
     id: close-deployment
-    env:
-      PASSWORD: ${{ inputs.password }}
     shell: bash
     run: |
       echo "Closing deployment"
 
       ## === broadcast tx === ##
-      TX=$(echo "${PASSWORD}" | ${CLIENT} tx deployment close | jq -r '.txhash')
+      TX=$(echo "${{ inputs.password }}" | ${CLIENT} tx deployment close | jq -r '.txhash')
       if test -z $TX; then
         echo "No TX broadcasted!"
         exit 1
@@ -58,9 +61,4 @@ runs:
     run: |
       echo "AKASH_DSEQ=" >> $GITHUB_ENV
       echo "AKASH_PROVIDER=" >> $GITHUB_ENV
-      rm -vf ${{ inputs.project_path }}/.akash/DSEQ ${{ inputs.project_path }}/.akash/PROVIDER ${{ inputs.project_path }}/.akash/STATUS
-
-  - name: Commit & Push changes
-    uses: actions-js/push@master
-    with:
-      github_token: ${{ inputs.github_token }}
+      rm -vrf ${{ inputs.project-path }}/.akash/${{ inputs.project-name }}

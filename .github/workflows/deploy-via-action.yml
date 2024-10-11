@@ -1,0 +1,80 @@
+name: Deploy me
+
+on:
+  workflow_call:
+    inputs:
+      project-path:
+        description: 'Path for the project to deploy'
+        required: false
+        default: '.'
+        type: string
+      project-name:
+        description: 'Project name (will be used as prefix for cache keys)'
+        required: false
+        default: 'app'
+        type: string
+      image:
+        description: 'Change the image tag to deploy'
+        required: true
+        type: string
+    secrets:
+      seed:
+        description: 'Seed phrase for the wallet'
+        required: true
+      password:
+        description: 'Password to decrypt the wallet'
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        ref: main
+
+    - name: Deploy
+      uses: ./.github/actions/deploy@main
+      env:
+        ORG: akash-network
+        REPO: provider
+        CLIENT: provider-services
+        CLIENT_VERSION: 0.6.4
+        ARCH: linux_amd64
+        # Akash Network
+        NET: mainnet
+        #BLOCK_TIME: 6s
+        BLOCK_TIME: 1s
+        # Quit if chain is running 30 seconds behind
+        CHAIN_LATENCY: 30
+        # Akash Client parameters
+        AKASH_KEYRING_BACKEND: file
+        AKASH_BROADCAST_MODE: block
+        #AKASH_BROADCAST_MODE: async
+        AKASH_YES: 1
+        AKASH_GAS_PRICES: 0.025uakt
+        AKASH_GAS: auto
+        AKASH_GAS_ADJUSTMENT: 1.5
+        AKASH_HOME: /home/runner/.akash
+        AKASH_FROM: default
+        AKASH_OUTPUT: json
+        # Minimum balance on the wallet in AKT
+        MIN_BALANCE: 10
+        AKASH_GSEQ: 1
+        AKASH_OSEQ: 1
+        SDL: deploy.yaml
+        PARSED_SDL: ${{ inputs.project-path }}/deploy-parsed.yaml
+        PROVIDER: ${{secrets.AKASH_PROVIDER}}
+        AKASH_PROVIDER: ${{secrets.AKASH_PROVIDER}}
+        AKASH_DSEQ: ${{ secrets.AKASH_DSEQ }}
+      with:
+        project-path: ${{ inputs.project-path }}
+        project-name: ${{ inputs.project-name }}
+        image: ${{ inputs.image }}
+        provider: ${{secrets.AKASH_PROVIDER}}
+        seed: ${{ secrets.seed }}
+        password: ${{ secrets.password }}

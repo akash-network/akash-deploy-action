@@ -12,8 +12,6 @@ runs:
 
   steps:
   - name: Cleanup stale deployment requests
-    env:
-      PASSWORD: ${{ inputs.password }}
     shell: bash
     run: |
       unset AKASH_DSEQ
@@ -26,7 +24,7 @@ runs:
           if test -z "$LEASE_STATE" || [[ "$LEASE_STATE" == "closed" ]]; then
 
             ## === broadcast tx === ##
-            TX=$(echo "${PASSWORD}" | ${CLIENT} tx deployment close | jq -r '.txhash')
+            TX=$(echo "${{ inputs.password }}" | ${CLIENT} tx deployment close | jq -r '.txhash')
             if test -z $TX; then
               echo "No TX broadcasted!"
               exit 1

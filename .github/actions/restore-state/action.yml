@@ -1,9 +1,14 @@
 name: Restore the state
 
 inputs:
-  PROJECT_PATH:
+  project-path:
     description: 'Path to the project'
     required: true
+    type: string
+  project-name:
+    description: 'Project name (will be used as prefix for cache keys)'
+    required: false
+    default: 'app'
     type: string
 
 runs:
@@ -15,13 +20,15 @@ runs:
     continue-on-error: true
     shell: bash
     run: |
-      if [[ -f ${{ inputs.PROJECT_PATH }}/.akash/DSEQ && -f ${{ inputs.PROJECT_PATH }}/.akash/PROVIDER ]]; then
-        AKASH_DSEQ=$(cat ${{ inputs.PROJECT_PATH }}/.akash/DSEQ)
-        AKASH_PROVIDER=$(cat ${{ inputs.PROJECT_PATH }}/.akash/PROVIDER)
+      base_path=${{ inputs.project-path }}/.akash/${{inputs.project-name}}
+      if [[ -f $base_path/DSEQ && -f $base_path/PROVIDER ]]; then
+        AKASH_DSEQ=$(cat $base_path/DSEQ)
+        AKASH_PROVIDER=$(cat $base_path/PROVIDER)
       fi
       test ! -z "$AKASH_DSEQ"
       test ! -z "$AKASH_PROVIDER"
       echo "Expecting $AKASH_DSEQ/$AKASH_GSEQ/$AKASH_OSEQ deployment on $AKASH_PROVIDER provider."
+      echo "Going to verify whether it is alive."
       echo "Going to verify whether it is alive."
       echo "AKASH_DSEQ=$AKASH_DSEQ" >> $GITHUB_ENV
       echo "AKASH_PROVIDER=$AKASH_PROVIDER" >> $GITHUB_ENV
