@@ -1,18 +1,19 @@
 name: Cleanup stale state
-description: Cleanup state .akash/{DSEQ,PROVIDER,STATUS} if deployment is inactive
+description: Cleanup state .akash/project-name if deployment is inactive
 
 inputs:
   password:
     description: 'Password to decrypt the wallet'
     required: true
     type: string
-  github_token:
-    description: 'GITHUB_TOKEN'
-    required: true
-    type: string
-  PROJECT_PATH:
+  project-path:
     description: 'Path to the project'
     required: true
+    type: string
+  project-name:
+    description: 'Project name (will be used as prefix for state files)'
+    required: false
+    default: 'app'
     type: string
 
 runs:
@@ -21,14 +22,12 @@ runs:
   steps:
   - name: Close stale deployment
     id: close-stale-deployment
-    env:
-      PASSWORD: ${{ inputs.password }}
     shell: bash
     run: |
       echo "Closing stale deployment"
 
       ## === broadcast tx === ##
-      TX=$(echo "${PASSWORD}" | ${CLIENT} tx deployment close | jq -r '.txhash')
+      TX=$(echo "${{ inputs.password }}" | ${CLIENT} tx deployment close | jq -r '.txhash')
       if test -z $TX; then
         echo "No TX broadcasted!"
         exit 1
@@ -57,9 +56,5 @@ runs:
     run: |
       echo "AKASH_DSEQ=" >> $GITHUB_ENV
       echo "AKASH_PROVIDER=" >> $GITHUB_ENV
-      rm -vf ${{ inputs.PROJECT_PATH }}/.akash/DSEQ ${{ inputs.PROJECT_PATH }}/.akash/PROVIDER ${{ inputs.PROJECT_PATH }}/.akash/STATUS
+      rm -vrf ${{ inputs.project-path }}/.akash/${{ inputs.project-name }}
 
-  - name: Commit & Push changes
-    uses: actions-js/push@master
-    with:
-      github_token: ${{ inputs.github_token }}

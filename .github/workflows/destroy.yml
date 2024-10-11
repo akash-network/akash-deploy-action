@@ -1,24 +1,24 @@
 name: Destroy me
-#description: Close a single deployment based on the state (.akash/{DSEQ,PROVIDER})
+#description: Close a single deployment based on the state (.akash/project-name)
 
 on:
   workflow_call:
     inputs:
-      PROJECT_PATH:
+      project-path:
         description: 'Path for the project to deploy'
         required: false
         default: '.'
         type: string
-      project_name:
+      project-name:
         description: 'Project name (will be used as prefix for cache keys)'
         required: false
         default: 'app'
         type: string
     secrets:
-      SEED:
+      seed:
         description: 'Seed phrase for the wallet'
         required: true
-      PASSWORD:
+      password:
         description: 'Password to decrypt the wallet'
         required: true
       ghcr-token:
@@ -66,16 +66,16 @@ jobs:
     - name: Call Initialize Akash client
       uses: TedcryptoOrg/akash-deploy-action/.github/actions/init-akash@main
       with:
-        seed: ${{ secrets.SEED }}
-        password: ${{ secrets.PASSWORD }}
-        project_name: ${{ inputs.project_name }}
+        seed: ${{ secrets.seed }}
+        password: ${{ secrets.password }}
+        project-name: ${{ inputs.project-name }}
 
-    # Restore .akash/{DSEQ,PROVIDER} state
+    # Restore .akash/project-name state
     - name: Call Restore state
       id: call-restore-state
       uses: TedcryptoOrg/akash-deploy-action/.github/actions/restore-state@main
       with:
-        PROJECT_PATH: ${{ inputs.PROJECT_PATH }}
+        project-path: ${{ inputs.project-path }}
 
     - name: Call Get deployment status
       id: call-get-deployment-status
@@ -88,6 +88,6 @@ jobs:
       uses: TedcryptoOrg/akash-deploy-action/.github/actions/close-state-deployment@main
       if: steps.call-get-deployment-status.outputs.is-deployment-active == 'true'
       with:
-        password: ${{ secrets.PASSWORD }}
+        password: ${{ secrets.password }}
         github_token: ${{ secrets.ghcr-token }}
-        PROJECT_PATH: ${{ inputs.PROJECT_PATH }}
+        project-path: ${{ inputs.project-path }}

@@ -1,102 +1,66 @@
-name: Deploy me
+name: Deploy to akash
 
-on:
-  workflow_call:
-    inputs:
-      project-path:
-        description: 'Path for the project to deploy'
-        required: false
-        default: '.'
-        type: string
-      project-name:
-        description: 'Project name (will be used as prefix for cache keys)'
-        required: false
-        default: 'app'
-        type: string
-      image:
-        description: 'Change the image tag to deploy'
-        required: true
-        type: string
-      provider:
-        description: 'Provider address to deploy the project'
-        type: string
-      github-message:
-        type: string
-        description: 'Commit message for state changes'
-        required: false
-        default: 'chore(deploy): update deployment state'
-      github-author-email:
-        type: string
-        description: 'Git commit author email'
-        required: false
-      github-author-name:
-        type: string
-        description: 'Git commit author name'
-        required: false
-    secrets:
-      seed:
-        description: 'Seed phrase for the wallet'
-        required: true
-      password:
-        description: 'Password to decrypt the wallet'
-        required: true
-      github-token:
-        description: 'GITHUB_TOKEN'
-        required: true
-
-env:
-  ORG: akash-network
-  REPO: provider
-  CLIENT: provider-services
-  CLIENT_VERSION: 0.6.4
-  ARCH: linux_amd64
-  # Akash Network
-  NET: mainnet
-  #BLOCK_TIME: 6s
-  BLOCK_TIME: 1s
-  # Quit if chain is running 30 seconds behind
-  CHAIN_LATENCY: 30
-  # Akash Client parameters
-  AKASH_KEYRING_BACKEND: file
-  AKASH_BROADCAST_MODE: block
-  #AKASH_BROADCAST_MODE: async
-  AKASH_YES: 1
-  AKASH_GAS_PRICES: 0.025uakt
-  AKASH_GAS: auto
-  AKASH_GAS_ADJUSTMENT: 1.5
-  AKASH_HOME: /home/runner/.akash
-  AKASH_FROM: default
-  AKASH_OUTPUT: json
-  # Minimum balance on the wallet in AKT
-  MIN_BALANCE: 10
-  AKASH_GSEQ: 1
-  AKASH_OSEQ: 1
-  SDL: deploy.yaml
-  PARSED_SDL: ${{ inputs.project-path }}/deploy-parsed.yaml
-  PROVIDER: ${{inputs.provider}}
+inputs:
+  project-path:
+    description: 'Path for the project to deploy'
+    required: false
+    default: '.'
+    type: string
+  project-name:
+    description: 'Project name (will be used as prefix for cache keys)'
+    required: false
+    default: 'app'
+    type: string
+  image:
+    description: 'Change the image tag to deploy'
+    required: true
+    type: string
+  provider:
+    description: 'Provider address to deploy the project'
+    type: string
+  github-message:
+    type: string
+    description: 'Commit message for state changes'
+    required: false
+    default: "chore(deploy): update deployment state"
+  github-author-email:
+    type: string
+    description: 'Git commit author email'
+    required: false
+  github-author-name:
+    type: string
+    description: 'Git commit author name'
+    required: false
+  seed:
+    description: 'Seed phrase for the wallet'
+    required: true
+  password:
+    description: 'Password to decrypt the wallet'
+    required: true
+  github-token:
+    description: 'GITHUB_TOKEN'
+    required: true
 
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
-    steps:
+runs:
+  using: "composite"
+  steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        ref: main
 
     - name: Call Initialize Akash client
       uses: akash-network/akash-deploy-action/.github/actions/init-akash@main
       with:
-        seed: ${{ secrets.seed }}
-        password: ${{ secrets.password }}
+        seed: ${{ inputs.seed }}
+        password: ${{ inputs.password }}
         project-name: ${{ inputs.project-name }}
 
     - name: Call Cleanup stale order requests
       uses: akash-network/akash-deploy-action/.github/actions/cleanup-stale-orders@main
       with:
-        password: ${{ secrets.password }}
+        password: ${{ inputs.password }}
 
     - name: Call Restore state
       id: call-restore-state
@@ -117,21 +81,18 @@ jobs:
       uses: akash-network/akash-deploy-action/.github/actions/cleanup-stale-state@main
       if: steps.call-get-deployment-status.outputs.is-deployment-active == 'false'
       with:
-        password: ${{ secrets.password }}
+        password: ${{ inputs.password }}
         project-path: ${{ inputs.project-path }}
         project-name: ${{ inputs.project-name }}
 
     - name: Interpolate SDL vars
       id: interpolate-sdl-vars
+      shell: bash
       env:
-        DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
-        SENTRY_SERVER_NAME: ${{ secrets.SENTRY_SERVER_NAME }}
         IMAGE_NAME: ${{ inputs.image }}
-        CLOUD_SQL_TOKEN: ${{ secrets.CLOUD_SQL_TOKEN }}
       run: |
-#        sudo apt-get update && sudo apt-get install -y gettext
+        sudo apt-get update && sudo apt-get install -y gettext
         VARS=$(sed -n 's/.*{{\s*\([A-Za-z_][A-Za-z0-9_]*\)\s*}}.*/\1/p' ${{ inputs.project-path }}/${SDL} | sort | uniq | sed 's/[^ ]* */$&/g' | tr '\n' ' ')
-        cat ${{ inputs.project-path }}/${SDL}
         sed 's/{{\([A-Za-z_][A-Za-z0-9_]*\)}}/\$\1/g' ${{ inputs.project-path }}/${SDL} | envsubst "$VARS" > ${PARSED_SDL}
         echo "--------------- PARSED SDL FILE ---------------"
         cat ${PARSED_SDL}
@@ -140,8 +101,9 @@ jobs:
     - name: Update existing deployment
       id: update-deployment
       if: steps.call-get-deployment-status.outputs.is-deployment-active == 'true'
+      shell: bash
       env:
-        password: ${{ secrets.password }}
+        password: ${{ inputs.password }}
       run: |
         #echo "AKASH_DSEQ: $AKASH_DSEQ"
         
@@ -183,8 +145,9 @@ jobs:
       if: |
         ( steps.call-get-deployment-status.outputs.is-deployment-active != 'true' || steps.call-cleanup-stale-state.outcome == 'success' ) ||
         steps.call-get-deployment-status.outcome == 'skipped'
+      shell: bash
       env:
-        password: ${{ secrets.password }}
+        password: ${{ inputs.password }}
       run: |
         if test ! -z "$AKASH_DSEQ"; then
           echo "Looks like there was an issue closing stale deployment: $AKASH_DSEQ/$AKASH_GSEQ/$AKASH_OSEQ"
@@ -226,8 +189,9 @@ jobs:
     - name: Look for the bids on the Akash network
       id: find-bids
       if: steps.create-deployment.outcome == 'success'
+      shell: bash
       env:
-        password: ${{ secrets.password }}
+        password: ${{ inputs.password }}
       run: |
         test ! -z "$AKASH_DSEQ"
         echo "Giving providers 12 seconds to bid ..."
@@ -292,8 +256,9 @@ jobs:
       if: |
         steps.create-deployment.outcome == 'success' &&
         steps.find-bids.outcome == 'success'
+      shell: bash
       env:
-        password: ${{ secrets.password }}
+        password: ${{ inputs.password }}
       run: |
         if test -z "$AKASH_DSEQ"; then
           echo "AKASH_DSEQ is not set. Possible causes:"
@@ -334,8 +299,9 @@ jobs:
     - name: Deposit additional AKT tokens to the deployment
       id: deposit-deployment
       env:
-        password: ${{ secrets.password }}
+        password: ${{ inputs.password }}
       if: steps.create-lease.outcome == 'success' || steps.update-deployment.outcome == 'success'
+      shell: bash
       run: |
         test ! -z "$AKASH_DSEQ"
         DAYS_LEFT=$(${CLIENT} query escrow blocks-remaining | jq -r '.estimated_time_remaining/pow(10;9)/60/60/24|round')
@@ -350,8 +316,9 @@ jobs:
     - name: Send manifest to the provider
       id: send-manifest
       if: steps.create-lease.outcome == 'success' || steps.update-deployment.outcome == 'success'
+      shell: bash
       env:
-        password: ${{ secrets.password }}
+        password: ${{ inputs.password }}
       run: |
         test ! -z "$AKASH_DSEQ"
         test ! -z "$AKASH_PROVIDER"
@@ -360,8 +327,9 @@ jobs:
     - name: Lease status
       id: lease-status
       if: steps.create-lease.outcome == 'success' || steps.update-deployment.outcome == 'success'
+      shell: bash
       env:
-        password: ${{ secrets.password }}
+        password: ${{ inputs.password }}
       run: |
         test ! -z "$AKASH_DSEQ"
         mkdir -p ${{ inputs.project-path }}/.akash/${{inputs.project-name}} 2>/dev/null || :
@@ -370,6 +338,7 @@ jobs:
 
     - name: Save DSEQ and PROVIDER
       if: steps.create-lease.outcome == 'success' || steps.update-deployment.outcome == 'success'
+      shell: bash
       run: |
         test ! -z "$AKASH_DSEQ"
         test ! -z "$AKASH_PROVIDER"
@@ -378,12 +347,14 @@ jobs:
         echo "$AKASH_PROVIDER" > ${{ inputs.project-path }}/.akash/${{inputs.project-name}}/PROVIDER
 
     - name: Remove the parsed SDL file
+      shell: bash
       run: rm -f ${PARSED_SDL}
 
     - name: Commit & Push changes
       uses: actions-js/push@master
       with:
-        github_token: ${{ secrets.ghcr-token }}
+        github_token: ${{ inputs.github-token }}
         author_email: ${{ inputs.github-author-email }}
         author_name: ${{ inputs.github-author-name }}
         message: ${{ inputs.github-message }}
+        rebase: true

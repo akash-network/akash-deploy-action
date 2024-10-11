@@ -2,7 +2,7 @@ name: Close all active deployments
 description: Close all active deployments
 
 inputs:
-  project_path:
+  project-path:
     description: 'Path to the project'
     required: true
     type: string
@@ -14,14 +14,17 @@ inputs:
     description: 'GITHUB_TOKEN'
     required: true
     type: string
+  project-name:
+    description: 'Project name (will be used as prefix for state files)'
+    required: false
+    default: 'app'
+    type: string
 
 runs:
   using: "composite"
 
   steps:
   - name: Close all active deployments
-    env:
-      PASSWORD: ${{ inputs.password }}
     shell: bash
     run: |
       unset AKASH_DSEQ
@@ -32,7 +35,7 @@ runs:
         while read AKASH_DSEQ; do
           export AKASH_DSEQ
           ## === broadcast tx === ##
-          TX=$(echo "${PASSWORD}" | ${CLIENT} tx deployment close | jq -r '.txhash')
+          TX=$(echo "${{ inputs.password }}" | ${CLIENT} tx deployment close | jq -r '.txhash')
           if test -z $TX; then
             echo "No TX broadcasted!"
             exit 1
@@ -63,7 +66,7 @@ runs:
     run: |
       echo "AKASH_DSEQ=" >> $GITHUB_ENV
       echo "AKASH_PROVIDER=" >> $GITHUB_ENV
-      rm -vf ${{ inputs.project_path }}/.akash/DSEQ ${{ inputs.project_path }}/.akash/PROVIDER ${{ inputs.project_path }}/.akash/STATUS
+      rm -vrf ${{ inputs.project-path }}/.akash/${{ inputs.project-name }}
 
   - name: Commit & Push changes
     uses: actions-js/push@master
