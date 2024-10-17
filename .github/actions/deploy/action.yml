@@ -18,38 +18,17 @@ inputs:
   provider:
     description: 'Provider address to deploy the project'
     type: string
-  github-message:
-    type: string
-    description: 'Commit message for state changes'
-    required: false
-    default: "chore(deploy): update deployment state"
-  github-author-email:
-    type: string
-    description: 'Git commit author email'
-    required: false
-  github-author-name:
-    type: string
-    description: 'Git commit author name'
-    required: false
   seed:
     description: 'Seed phrase for the wallet'
     required: true
   password:
     description: 'Password to decrypt the wallet'
     required: true
-  github-token:
-    description: 'GITHUB_TOKEN'
-    required: true
 
 
 runs:
   using: "composite"
   steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        ref: main
-
     - name: Call Initialize Akash client
       uses: akash-network/akash-deploy-action/.github/actions/init-akash@main
       with:
@@ -57,23 +36,9 @@ runs:
         password: ${{ inputs.password }}
         project-name: ${{ inputs.project-name }}
 
-    - name: Call Cleanup stale order requests
-      uses: akash-network/akash-deploy-action/.github/actions/cleanup-stale-orders@main
-      with:
-        password: ${{ inputs.password }}
-
-    - name: Call Restore state
-      id: call-restore-state
-      uses: akash-network/akash-deploy-action/.github/actions/restore-state@main
-      with:
-        project-path: ${{ inputs.project-path }}
-        project-name: ${{ inputs.project-name }}
-
     - name: Call Get deployment status
       id: call-get-deployment-status
-      if: |
-        steps.call-restore-state.outcome == 'success' &&
-        ( env.AKASH_DSEQ != '' && env.AKASH_PROVIDER != '' )
+      if: env.AKASH_DSEQ != '' && env.AKASH_PROVIDER != ''
       uses: akash-network/akash-deploy-action/.github/actions/get-deployment-status@main
 
     - name: Call Cleanup stale state
@@ -349,12 +314,3 @@ runs:
     - name: Remove the parsed SDL file
       shell: bash
       run: rm -f ${PARSED_SDL}
-
-    - name: Commit & Push changes
-      uses: actions-js/push@master
-      with:
-        github_token: ${{ inputs.github-token }}
-        author_email: ${{ inputs.github-author-email }}
-        author_name: ${{ inputs.github-author-name }}
-        message: ${{ inputs.github-message }}
-        rebase: true
